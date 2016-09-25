@@ -100,7 +100,7 @@ class HanoiDemoApp(YoupiApplication):
                 self.arm.calibrate_gripper()
 
             self.pnl.clear()
-            self.pnl.center_text_at('Initial tower', line=2)
+            self.pnl.center_text_at('Tower initial', line=2)
             self.pnl.center_text_at('setup...', line=3)
 
             blk_nums = ['1st', '2nd', '3rd']
@@ -143,7 +143,6 @@ class HanoiDemoApp(YoupiApplication):
             self.pnl.center_text_at('Solving puzzle...', line=3)
 
             self.arm.goto(self.start_pose)
-            # self.arm.goto({YoupiArm.MOTOR_HAND_ROT: self.HAND_POSITION})
             self.arm.rotate_hand_to(self.HAND_POSITION)
 
             self.state = self.STATE_SOLVING
