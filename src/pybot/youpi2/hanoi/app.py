@@ -19,7 +19,6 @@ class HanoiDemoApp(YoupiApplication):
     VERSION = version
 
     DEFAULT_BASE_ANGLE = 25
-    HAND_POSITION = 90
 
     STATE_INIT, STATE_READY, STATE_SOLVING, STATE_DONE = range(4)
 
@@ -32,7 +31,14 @@ class HanoiDemoApp(YoupiApplication):
     ]
 
     feed_pose = positions[0].copy()
+
     start_pose = positions[-1].copy()
+    ready_pose = {
+        YoupiArm.MOTOR_BASE: 0,
+        YoupiArm.MOTOR_SHOULDER: 0,
+        YoupiArm.MOTOR_ELBOW: 45,
+        YoupiArm.MOTOR_WRIST: 45
+    }
 
     transport_motor_pos = {YoupiArm.MOTOR_SHOULDER: 60}
 
@@ -100,12 +106,12 @@ class HanoiDemoApp(YoupiApplication):
                 self.arm.calibrate_gripper()
 
             self.pnl.clear()
-            self.pnl.center_text_at('Tower initial', line=2)
-            self.pnl.center_text_at('setup...', line=3)
+            self.pnl.center_text_at('Tower setup...', line=2)
 
             blk_nums = ['1st', '2nd', '3rd']
             for i in range(3):
                 self.arm.goto(self.feed_pose)
+
                 self.pnl.clear()
                 self.pnl.center_text_at('Give me %s block' % blk_nums[i], line=2)
                 self.pnl.center_text_at('OK: go - ESC: quit', line=4)
@@ -113,21 +119,28 @@ class HanoiDemoApp(YoupiApplication):
                     return 1
 
                 self.pnl.clear()
-                self.pnl.center_text_at('Preparing tower', line=2)
+                self.pnl.center_text_at('Assembling tower', line=2)
 
                 self.arm.close_gripper()
                 self.arm.motor_goto(self.transport_motor_pos)
 
                 pose = self._compute_pose(-1, i)
-                self.arm.motor_goto({YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE]})
+                base_angle = pose[YoupiArm.MOTOR_BASE]
+                self.arm.goto({
+                    YoupiArm.MOTOR_BASE: base_angle,
+                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                })
                 self.arm.goto(pose)
                 self.arm.open_gripper()
                 self.arm.motor_goto(self.transport_motor_pos)
-                self.arm.go_home([YoupiArm.MOTOR_BASE])
+                self.arm.goto({
+                    YoupiArm.MOTOR_BASE: 0,
+                    YoupiArm.MOTOR_HAND_ROT: 0
+                })
 
             self.pnl.clear()
-            self.pnl.center_text_at('Back home...', line=2)
-            self.arm.go_home()
+            self.pnl.center_text_at('Almost ready...', line=2)
+            self.arm.goto(self.ready_pose)
 
             self.pnl.clear()
             self.pnl.center_text_at('Ready.', line=2)
@@ -143,12 +156,11 @@ class HanoiDemoApp(YoupiApplication):
             self.pnl.center_text_at('Solving puzzle...', line=3)
 
             self.arm.goto(self.start_pose)
-            self.arm.rotate_hand_to(self.HAND_POSITION)
 
             self.state = self.STATE_SOLVING
 
         elif self.state == self.STATE_SOLVING:
-            self.pnl.center_text_at("Steps to go : %d" % (len(self.sequence) - self.step_num), line=3)
+            self.pnl.center_text_at("Remaining moves : %d" % (len(self.sequence) - self.step_num), line=3)
 
             self.arm.motor_goto(self.transport_motor_pos)
 
@@ -156,7 +168,11 @@ class HanoiDemoApp(YoupiApplication):
 
             if self.with_block:
                 pose = self._compute_pose(*step_to)
-                self.arm.goto({YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE]})
+                base_angle = pose[YoupiArm.MOTOR_BASE]
+                self.arm.goto({
+                    YoupiArm.MOTOR_BASE: base_angle,
+                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                })
                 self.arm.goto(pose)
                 self.arm.open_gripper()
 
@@ -168,7 +184,11 @@ class HanoiDemoApp(YoupiApplication):
 
             else:
                 pose = self._compute_pose(*step_from)
-                self.arm.goto({YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE]})
+                base_angle = pose[YoupiArm.MOTOR_BASE]
+                self.arm.goto({
+                    YoupiArm.MOTOR_BASE: base_angle,
+                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                })
                 self.arm.goto(pose)
                 self.arm.close_gripper()
 
@@ -178,8 +198,12 @@ class HanoiDemoApp(YoupiApplication):
             self.pnl.clear()
             self.pnl.center_text_at('Job done !!', line=2)
 
-            self.arm.go_home(YoupiArm.MOTOR_BASE)
-            self.arm.go_home()
+            self.arm.motor_goto(self.transport_motor_pos)
+            self.arm.goto({
+                YoupiArm.MOTOR_BASE: 0,
+                YoupiArm.MOTOR_HAND_ROT: 0
+            })
+            self.arm.goto(self.ready_pose)
 
             self.pnl.center_text_at('OK: redo - ESC: quit', line=4)
             if self._ok_cancel():
