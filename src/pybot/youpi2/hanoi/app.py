@@ -23,7 +23,7 @@ class HanoiDemoApp(YoupiApplication):
 
     STATE_INIT, STATE_READY, STATE_SOLVING, STATE_DONE = range(4)
 
-    TOWER_X = 100
+    TOWER_X = 150
     TOWER_Y_DIST = 100
     BLOCK_HEIGHT = 26
 
