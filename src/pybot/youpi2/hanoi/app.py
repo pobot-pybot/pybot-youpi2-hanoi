@@ -4,6 +4,7 @@ from pybot.youpi2.app import YoupiApplication
 from pybot.youpi2.ctlpanel import Keys
 from pybot.youpi2.ctlpanel.widgets import CH_OK, CH_CANCEL
 from pybot.youpi2.model import YoupiArm
+from pybot.youpi2.kin import Kinematics
 
 try:
     from __version__ import version
@@ -22,17 +23,13 @@ class HanoiDemoApp(YoupiApplication):
 
     STATE_INIT, STATE_READY, STATE_SOLVING, STATE_DONE = range(4)
 
-    base_angle = DEFAULT_BASE_ANGLE
+    TOWER_X = 100
+    TOWER_Y_DIST = 100
+    BLOCK_HEIGHT = 26
 
-    positions = [
-        {YoupiArm.MOTOR_SHOULDER: 84, YoupiArm.MOTOR_ELBOW: 43, YoupiArm.MOTOR_WRIST: 46},
-        {YoupiArm.MOTOR_SHOULDER: 76, YoupiArm.MOTOR_ELBOW: 50, YoupiArm.MOTOR_WRIST: 48},
-        {YoupiArm.MOTOR_SHOULDER: 68, YoupiArm.MOTOR_ELBOW: 56, YoupiArm.MOTOR_WRIST: 49},
-    ]
+    start_pose = feed_pose = None
+    kinematics = None
 
-    feed_pose = positions[0].copy()
-
-    start_pose = positions[-1].copy()
     ready_pose = {
         YoupiArm.MOTOR_BASE: 0,
         YoupiArm.MOTOR_SHOULDER: 0,
@@ -40,7 +37,7 @@ class HanoiDemoApp(YoupiApplication):
         YoupiArm.MOTOR_WRIST: 45
     }
 
-    transport_motor_pos = {YoupiArm.MOTOR_SHOULDER: 60}
+    transport_sub_pose = None
 
     sequence = [
         # (side, level) to (side, level)
@@ -63,19 +60,24 @@ class HanoiDemoApp(YoupiApplication):
 
     state = STATE_INIT
 
-    def add_custom_arguments(self, parser):
-        parser.add_argument('--base-angle', default=self.DEFAULT_BASE_ANGLE)
+    def _compute_pose(self, x, y, level, hand_rot=0):
+        angles = self.kinematics.ik(x, y, self.BLOCK_HEIGHT * (level + 0.5))
+        pose = {i: a for i, a in enumerate(angles)}
 
-    def setup(self, base_angle=DEFAULT_BASE_ANGLE, **kwargs):
-        self.base_angle = base_angle
+        pose[YoupiArm.MOTOR_HAND_ROT] = pose[YoupiArm.MOTOR_BASE] + hand_rot
+        return pose
+
+    def setup(self, **kwargs):
         self.arm.soft_hi_Z()
+
+        self.kinematics = Kinematics(parent=self.logger)
+
+        self.feed_pose = self._compute_pose(self.TOWER_X, 0, 0)
+        self.start_pose = self._compute_pose(self.TOWER_X, 0, 2.5)
+        self.transport_sub_pose = {YoupiArm.MOTOR_SHOULDER: self.start_pose[YoupiArm.MOTOR_SHOULDER]}
+
         self.state = self.STATE_INIT
         self.ok_esc_line = chr(CH_CANCEL) + (' ' * (self.pnl.width - 2)) + chr(CH_OK)
-
-    def _compute_pose(self, side, level):
-        pose = self.positions[level]
-        pose[YoupiArm.MOTOR_BASE] = side * self.direction * self.base_angle
-        return pose
 
     def _ok_cancel(self):
         self.pnl.write_at(self.ok_esc_line, line=1)
@@ -119,24 +121,31 @@ class HanoiDemoApp(YoupiApplication):
                     return 1
 
                 self.pnl.clear()
-                self.pnl.center_text_at('Assembling tower', line=2)
 
+                self.pnl.center_text_at('Centering block...', line=2)
                 self.arm.close_gripper()
-                self.arm.motor_goto(self.transport_motor_pos)
+                self.arm.open_gripper()
+                self.arm.motor_move({YoupiArm.MOTOR_SHOULDER: -10})
+                self.arm.rotate_hand_to(90)
+                self.arm.motor_move({YoupiArm.MOTOR_SHOULDER: 10})
+                self.arm.close_gripper()
 
-                pose = self._compute_pose(-1, i)
-                base_angle = pose[YoupiArm.MOTOR_BASE]
+                self.pnl.center_text_at('Assembling tower...', line=2)
+
+                self.arm.motor_goto(self.transport_sub_pose)
+
+                pose = self._compute_pose(self.TOWER_X, -self.TOWER_Y_DIST, level=i, hand_rot=90)
+
                 self.arm.goto({
-                    YoupiArm.MOTOR_BASE: base_angle,
-                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                    YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE],
+                    YoupiArm.MOTOR_HAND_ROT: pose[YoupiArm.MOTOR_HAND_ROT]
                 })
                 self.arm.goto(pose)
+
                 self.arm.open_gripper()
-                self.arm.motor_goto(self.transport_motor_pos)
-                self.arm.goto({
-                    YoupiArm.MOTOR_BASE: 0,
-                    YoupiArm.MOTOR_HAND_ROT: 0
-                })
+
+                self.arm.motor_goto(self.transport_sub_pose)
+                self.arm.goto(self.start_pose)
 
             self.pnl.clear()
             self.pnl.center_text_at('Almost ready...', line=2)
@@ -162,18 +171,25 @@ class HanoiDemoApp(YoupiApplication):
         elif self.state == self.STATE_SOLVING:
             self.pnl.center_text_at("Remaining moves : %d" % (len(self.sequence) - self.step_num), line=3)
 
-            self.arm.motor_goto(self.transport_motor_pos)
+            self.arm.motor_goto(self.transport_sub_pose)
 
             step_from, step_to = self.sequence[self.step_num]
 
             if self.with_block:
-                pose = self._compute_pose(*step_to)
-                base_angle = pose[YoupiArm.MOTOR_BASE]
+                side, level = step_to
+                pose = self._compute_pose(
+                    self.TOWER_X,
+                    self.TOWER_Y_DIST * side * self.direction,
+                    level
+                )
+                # move over the drop position
                 self.arm.goto({
-                    YoupiArm.MOTOR_BASE: base_angle,
-                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                    YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE],
+                    YoupiArm.MOTOR_HAND_ROT: pose[YoupiArm.MOTOR_HAND_ROT]
                 })
+                # go down to the position
                 self.arm.goto(pose)
+                # release the block
                 self.arm.open_gripper()
 
                 self.with_block = False
@@ -183,13 +199,20 @@ class HanoiDemoApp(YoupiApplication):
                     self.state = self.STATE_DONE
 
             else:
-                pose = self._compute_pose(*step_from)
-                base_angle = pose[YoupiArm.MOTOR_BASE]
+                side, level = step_to
+                pose = self._compute_pose(
+                    self.TOWER_X,
+                    self.TOWER_Y_DIST * side * self.direction,
+                    level
+                )
+                # move over the pick position
                 self.arm.goto({
-                    YoupiArm.MOTOR_BASE: base_angle,
-                    YoupiArm.MOTOR_HAND_ROT: base_angle
+                    YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE],
+                    YoupiArm.MOTOR_HAND_ROT: pose[YoupiArm.MOTOR_HAND_ROT]
                 })
+                # go down to the position
                 self.arm.goto(pose)
+                # pick the block
                 self.arm.close_gripper()
 
                 self.with_block = True
@@ -198,11 +221,9 @@ class HanoiDemoApp(YoupiApplication):
             self.pnl.clear()
             self.pnl.center_text_at('Job done !!', line=2)
 
-            self.arm.motor_goto(self.transport_motor_pos)
-            self.arm.goto({
-                YoupiArm.MOTOR_BASE: 0,
-                YoupiArm.MOTOR_HAND_ROT: 0
-            })
+            # final motion to the ready pose
+            self.arm.motor_goto(self.transport_sub_pose)
+            self.arm.goto(self.start_pose)
             self.arm.goto(self.ready_pose)
 
             self.pnl.center_text_at('OK: redo - ESC: quit', line=4)
