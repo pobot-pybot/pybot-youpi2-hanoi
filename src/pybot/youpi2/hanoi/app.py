@@ -230,7 +230,7 @@ class HanoiDemoApp(YoupiApplication):
             self.arm.goto(self._compute_pose(self.current_x, self.current_y, self.transport_level))
             self.arm.goto(self.ready_pose)
 
-            self.pnl.center_text_at('OK: again - ESC: quit', line=4)
+            self.pnl.center_text_at('OK: again - ESC: end', line=4)
             if self._ok_cancel():
                 self.step_num = 0
                 self.direction = -self.direction
