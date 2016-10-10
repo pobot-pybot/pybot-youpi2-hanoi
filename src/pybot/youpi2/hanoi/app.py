@@ -174,6 +174,7 @@ class HanoiDemoApp(YoupiApplication):
             if i == 2:
                 break
 
+            self.pnl.center_text_at('Next one...', line=2)
             pose = self._compute_pose(self.TOWER_X, 0, level=0)
             self.arm.goto({
                 YoupiArm.MOTOR_BASE: pose[YoupiArm.MOTOR_BASE],
@@ -207,7 +208,7 @@ class HanoiDemoApp(YoupiApplication):
         from_tower, to_tower = from_side + 1, to_side + 1
 
         # use a more natural tower numbering (i.e. starting from 1)
-        self.pnl.center_text_at("Move from %d to %d..." % (from_tower + 1, to_tower + 1))
+        self.pnl.center_text_at("From %d to %d..." % (from_tower + 1, to_tower + 1), line=3)
         still_to_do = len(self.sequence) - self.step_num
         if still_to_do > 1:
             msg = "Still %d moves to do" % still_to_do
