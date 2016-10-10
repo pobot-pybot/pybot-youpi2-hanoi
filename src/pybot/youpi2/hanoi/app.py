@@ -129,7 +129,7 @@ class HanoiDemoApp(YoupiApplication):
             self.arm.calibrate_gripper()
 
         self.pnl.clear()
-        self.pnl.center_text_at('Tower setup...', line=2)
+        self.pnl.center_text_at('Initial setup...', line=2)
 
         feed_pose_hover = self._compute_pose(self.TOWER_X, 0, level=0.5)
         delta_shoulder = feed_pose_hover[YoupiArm.MOTOR_SHOULDER] - self.feed_pose[YoupiArm.MOTOR_SHOULDER]
@@ -203,10 +203,16 @@ class HanoiDemoApp(YoupiApplication):
         return self.STATE_SOLVING
 
     def move_things(self):
-        self.pnl.center_text_at("Remaining moves : %d" % (len(self.sequence) - self.step_num), line=3)
-
         from_side, to_side = (n * self.direction for n in self.sequence[self.step_num])
         from_tower, to_tower = from_side + 1, to_side + 1
+
+        # use a more natural tower numbering (i.e. starting from 1)
+        self.pnl.center_text_at("Move from %d to %d..." % (from_tower + 1, to_tower + 1))
+        still_to_do = len(self.sequence) - self.step_num
+        if still_to_do > 1:
+            self.pnl.center_text_at("Still %d moves to do" % still_to_do, line=4)
+        else:
+            self.pnl.center_text_at("Last move !!", line=4)
 
         # raise enough depending on the current tower heights to fly to the target tower
         # without colliding
