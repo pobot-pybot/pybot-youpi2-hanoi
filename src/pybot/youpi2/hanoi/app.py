@@ -89,7 +89,7 @@ class HanoiDemoApp(YoupiApplication):
             level = max(self.tower_heights)
 
         # take into account the extra height of the carried block, if any
-        return (level - 0.5) if self.gripper_empty else (level + 0.5)
+        return level if self.gripper_empty else (level + 0.5)
 
     def setup(self, **kwargs):
         self.arm.soft_hi_Z()
