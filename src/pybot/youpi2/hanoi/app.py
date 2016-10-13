@@ -101,9 +101,9 @@ class HanoiDemoApp(YoupiApplication):
         self.state = self.STATE_INIT
         self.ok_esc_line = chr(CH_CANCEL) + (' ' * (self.pnl.width - 2)) + chr(CH_OK)
 
-    def _ok_cancel(self):
+    def _ok_cancel(self, max_wait=None):
         self.pnl.write_at(self.ok_esc_line, line=1)
-        return self.pnl.wait_for_key(valid=[Keys.OK, Keys.ESC], blink=True) == Keys.OK
+        return self.pnl.wait_for_key(valid=[Keys.OK, Keys.ESC], blink=True, max_wait=max_wait) == Keys.OK
 
     def make_ready(self):
         self.pnl.clear()
@@ -190,7 +190,7 @@ class HanoiDemoApp(YoupiApplication):
         self.pnl.center_text_at('Ready.', line=2)
         self.pnl.center_text_at('ESC:quit - OK:go', line=4)
 
-        if not self._ok_cancel():
+        if not self._ok_cancel(max_wait=300):
             return self.STATE_ABORT
 
         return self.STATE_READY
@@ -278,7 +278,7 @@ class HanoiDemoApp(YoupiApplication):
         self.arm.goto(self.ready_pose)
 
         self.pnl.center_text_at('ESC:quit - OK:again', line=4)
-        if self._ok_cancel():
+        if self._ok_cancel(max_wait=300):
             self.step_num = 0
             self.direction = -self.direction
             return self.STATE_READY
