@@ -269,7 +269,7 @@ class HanoiDemoApp(YoupiApplication):
 
             msg = "%s from %d to %d..." % (blk_name, human_friendly_from, human_friendly_to)
             self.pnl.center_text_at(msg, line=1)
-            self.log_info('picking block %s from tower %d...', blk_name, human_friendly_from)
+            self.log_info('.. picking block %s from tower %d...', blk_name, human_friendly_from)
 
             still_to_do = len(self.sequence) - self.step_num
             if still_to_do > 1:
@@ -311,7 +311,7 @@ class HanoiDemoApp(YoupiApplication):
             self._arm_action(self.arm.goto, self._compute_pose(self.current_x, self.current_y, travel_level))
 
             # second half of the move : we bring the block to its destination tower
-            self.log_info('placing block %s on tower %d...', blk_name, human_friendly_to)
+            self.log_info('.. placing block %s on tower %d...', blk_name, human_friendly_to)
 
             to_level = len(self.towers[to_tower])  # levels are numbered from 0
             new_x, new_y = self.TOWER_X, self.TOWER_Y_DIST * to_side
