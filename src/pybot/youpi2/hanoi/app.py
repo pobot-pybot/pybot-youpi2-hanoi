@@ -394,4 +394,4 @@ class HanoiDemoApp(YoupiApplication):
 
 
 def main():
-    HanoiDemoApp().main()
+    HanoiDemoApp.main()
